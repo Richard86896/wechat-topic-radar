@@ -1,7 +1,7 @@
 ---
 name: wechat-topic-radar
 description: Use this skill when the user asks for AI公众号选题推荐, says "每日选题", or uses "选题：{关键词}" to generate 5-10 WeChat article ideas with titles, audience, content angles, score, date, and source links.
-version: "2.3.0"
+version: "2.5.0"
 argument-hint: "每日选题 | 选题：关键词"
 allowed-tools: [Read, Bash, WebSearch, WebFetch]
 ---
@@ -43,6 +43,7 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 | `keywords_filter.md` | 热搜过滤关键词：包含需要排除的关键词 |
 | `prompt_filter.md` | AI提示词模糊过滤：包含需要排除的内容模式 |
 | `viral_headlines.md` | 爆款标题公式库：生成搜索用的爆款标题 |
+| `language_safety.md` | 语言安全规则：禁用词、表述规范、数据标注要求 |
 
 **重要**：使用技能前应先读取并加载这些配置文件。
 
@@ -334,3 +335,206 @@ python3 scripts/fetch_hot_topics.py --platform all
 2. 文件保存后告知用户文件路径
 3. 优先推荐B级（70分）以上的选题
 4. 确保原文链接和日期准确
+
+## 文章配图生成
+
+### 配图脚本
+调用 `scripts/generate_image.py` 使用 Replicate API 生成配图
+
+### 环境配置
+需要设置环境变量 `REPLICATE_API_TOKEN`：
+```bash
+export REPLICATE_API_TOKEN="your_api_token_here"
+```
+
+### 配图类型
+
+| 配图位置 | 类型 | 说明 |
+|----------|------|------|
+| 封面图 | 人物+场景 | 吸引眼球的封面 |
+| 内文图 | 信息图/场景图 | 配合文章内容 |
+| 结尾图 | 行动号召图 | 引导转发/关注 |
+
+### 配图流程
+
+1. **生成提示词**：根据选题内容，从 `references/image_prompts.md` 读取模板，生成具体提示词
+2. **调用API**：使用 `scripts/generate_image.py` 生成图片
+3. **保存图片**：图片保存到 `topics/images/` 目录
+4. **输出链接**：返回图片路径或URL
+
+### 封面图生成示例
+
+选题主题：库克卸任苹果CEO
+
+```bash
+python3 scripts/generate_image.py \
+  --prompt "Professional magazine cover image featuring Tim Cook and Jon Ternus, Apple CEO transition, AI era, clean corporate aesthetic, 16:9 aspect ratio" \
+  --output topics/images/20260421-cover.png
+```
+
+### 支持的配图尺寸
+
+| 用途 | 尺寸 | 宽高比 |
+|------|------|--------|
+| 封面图 | 900x383 | 2.35:1 |
+| 文中图 | 800x600 | 4:3 |
+| 结尾图 | 800x400 | 2:1 |
+| 朋友圈图 | 1080x1080 | 1:1 |
+
+### 配图风格
+
+- 封面图：专业、现代、科技感
+- 内文图：信息图风格、数据可视化
+- 结尾图：激励、行动号召
+
+## 环境变量配置
+
+### 必需的环境变量
+
+| 变量名 | 说明 | 获取方式 |
+|--------|------|----------|
+| `REPLICATE_API_TOKEN` | Replicate API密钥 | https://replicate.com/account/api-tokens |
+
+### 配置方法
+
+**macOS/Linux:**
+```bash
+export REPLICATE_API_TOKEN="your_token_here"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:REPLICATE_API_TOKEN="your_token_here"
+```
+
+**永久保存:**
+```bash
+# 添加到 ~/.bashrc 或 ~/.zshrc
+echo 'export REPLICATE_API_TOKEN="your_token_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### 验证配置
+```bash
+python3 scripts/generate_image.py --test
+```
+
+## 文章生成与实时事实校验
+
+### 生成流程（含校验）
+
+生成完整文章时，按以下步骤执行：
+
+```
+1. 选题确认 → 2. 资料搜集 → 3. 实时事实验证 → 4. 文章撰写 → 5. 自动校验 → 6. 输出
+```
+
+**步骤1-2：选题确认与资料搜集**
+- 确认选题主题和核心观点
+- 搜集相关资料和新闻来源
+
+**步骤3：实时事实验证（新增）**
+对文章中的关键事实，使用 WebSearch 进行实时验证：
+
+| 核查项 | 搜索验证方式 | 示例 |
+|--------|-------------|------|
+| 高管职位 | `"{姓名}" Apple position 2026` | `John Ternus Apple position 2026` |
+| 财务数据 | `Apple Q4 2025 earnings report` | 搜索最新财报数据 |
+| 公司历史 | `Apple founded year history` | 搜索确认成立时间 |
+| 事件日期 | `Tim Cook retirement announcement April 2026` | 搜索确认日期 |
+| 技术归属 | `Apple chip development leader Johny Srouji` | 搜索确认技术负责人 |
+| 高管年龄 | `Tim Cook born age` | 搜索确认年龄 |
+
+**步骤4：文章撰写**
+- 根据验证后的资料撰写文章
+- 遵循 language_safety.md 中的表述规范
+
+**步骤5：自动校验（新增）**
+使用 fact_checker.py 进行最终校验：
+```bash
+python3 scripts/fact_checker.py topics/xxx.md
+```
+
+**步骤6：输出**
+- 输出校验通过的文章
+- 如有错误，返回修正
+
+---
+
+### 实时校验触发词
+
+生成文章时，遇到以下关键词必须触发搜索验证：
+
+1. **人物 + 职位**：CEO、CTO、VP、SVP 等 → 搜索验证职位
+2. **数字 + 公司**：营收、市值、用户数等 → 搜索最新数据
+3. **公司 + 时间**：成立年份、上市时间等 → 搜索确认
+4. **事件 + 日期**：发布、退休、任命等 → 搜索确认日期
+
+---
+
+### 校验命令
+
+```bash
+# 检查单篇文章
+python3 scripts/fact_checker.py topics/20260421-库克卸任苹果CEO.md
+
+# 检查目录下所有文章
+python3 scripts/fact_checker.py --check-all topics/
+
+# JSON格式输出（用于自动化）
+python3 scripts/fact_checker.py topics/xxx.md --format json
+```
+
+### 校验输出示例
+
+```
+============================================================
+文件: topics/20260421-库克卸任苹果CEO.md
+============================================================
+
+📊 检查结果: PASS
+   错误: 0 | 警告: 1
+
+📋 问题列表:
+
+⚠️ [fact] 库克出生于1960年1月24日，2026年为66岁
+   建议: 改为'66岁'或'65岁'（取决于精确度）
+
+============================================================
+📊 汇总:
+   检查文件: 1
+   总错误: 0 | 总警告: 1
+
+✅ 全部检查通过!
+```
+
+---
+
+### 表述自检清单
+
+撰写文章时对照检查：
+
+- [ ] 原因推断是否加了"可能"、"或许"等限定词
+- [ ] 未来预测是否加了"可能"、"预期"等限定词
+- [ ] 财务数据是否加了"约"、"接近"等限定词
+- [ ] 高管归因是否准确（通过 WebSearch 实时验证）
+- [ ] 时间事件是否准确（通过 WebSearch 实时验证）
+- [ ] 行业对比是否保持中性（避免过度贬低或吹捧）
+- [ ] 是否使用了禁用词汇（对照 language_safety.md）
+- [ ] 数据是否有来源标注（公开财报、公开报道等）
+
+---
+
+### 语言安全规则摘要
+
+撰写时避免以下表述：
+
+| 情形 | 避免用语 | 推荐用语 |
+|------|----------|----------|
+| 未经证实原因 | "XX选择在AI爆发期卸任" | "XX此时卸任，原因多方面" |
+| 猜测方向 | "苹果将推出XX" | "苹果可能探索XX方向" |
+| 精确数据 | "$4,160亿" | "约$4,160亿" |
+| 主观判断 | "苹果AI明显落后" | "苹果在AI浪潮中相对谨慎" |
+| 未发生事件 | "库克已退休" | "库克宣布将于9月退休" |
+
+详见 `references/language_safety.md`
