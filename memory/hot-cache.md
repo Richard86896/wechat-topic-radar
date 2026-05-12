@@ -11,7 +11,8 @@
 |---|---|---|
 | 2026-05-12 | NewsNow 过载/D1_ERROR 时，立即切换 aihot fallback：`curl -sH "User-Agent: $UA" "https://aihot.virxact.com/api/public/items?mode=selected&since=24h"`，必须带 UA，否则 403 | ✅ 已写入 SKILL.md |
 | 2026-05-12 | 选题报告保存路径：`04.选题决策/每日选题/YYYYMMDD-每日选题.md` | ✅ 已写入 SKILL.md |
-| 2026-05-12 | 最终推荐默认只输出 3 个，不是 TOP10 | ✅ 已写入 SKILL.md |
+| 2026-05-12 | 最终推荐默认输出 3-5 个，不是 TOP10 | ✅ 已写入 SKILL.md |
+| 2026-05-12 | **评分体系统一为三步法**：① 否决过滤 → ② 七维评分（100分制+加减分，满分115）→ ③ 八维爆款诊断（不打分，只找短板）。废弃旧的 120 分制人设匹配度×40%+爆款潜力×60% 公式 | ✅ 已写入 SKILL.md |
 
 ---
 
@@ -21,6 +22,7 @@
 - **aihot 作为 NewsNow fallback 数据源**：用户确认，已写入 SKILL.md 并 git commit（commit: 3084ac2）
 - **触发背景**：NewsNow D1_ERROR 过载，之前 session 没有正确执行写入，导致规则丢失
 - **教训**：每次 session 后若有升级决策，必须写入本文件 + 确认文件已落盘
+- **评分体系统一**：旧的 120 分制（人设匹配度×40%+爆款潜力×60%+时效性）与 account_profile 七维 100 分制冲突。统一为三步法：① 否决过滤 → ② 七维评分（满分115）→ ③ 八维爆款诊断（只找短板不打分）
 
 ---
 
