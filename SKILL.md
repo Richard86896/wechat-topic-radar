@@ -14,6 +14,102 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 
 本技能从热搜榜单抓取AI相关热点话题，经过多轮过滤后生成符合公众号传播规律的选题推荐。
 
+
+## Vault 输出位置硬规则
+
+- 在 Richard 的 Obsidian vault 中，所有“每日选题 / 选题雷达 / 四平台选题 / 话题排名”类 Markdown 输出，默认且必须保存到：`04.选题决策/每日选题/`。
+- 不要创建或使用 vault 根目录下的 `topics/` 作为长期输出目录。
+- 如需保存配图，使用：`04.选题决策/每日选题/images/`。
+- 命令示例、脚本 `--output` 参数、事实校验路径都应使用上述目录。
+
+
+
+## 环境能力组合拳（2026-05-10）
+
+选题准确度不依赖单一 skill 或单一热榜，而依赖当前环境里的多能力组合：
+
+1. **NewsNow 热榜聚合**：用于广撒网抓取多平台热点，覆盖 GitHub、Hacker News、IT之家、掘金、V2EX、少数派、Product Hunt、知乎、微博、微信、百度、头条、抖音、B站、小红书等。
+2. **AI HOT 精选（aihot fallback）**：NewsNow 过载或返回空结果时，立即切换到 aihot.virxact.com 精选 API 作为 AI 资讯备用数据源。命令：
+   ```bash
+   UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+   curl -sH "User-Agent: $UA" "https://aihot.virxact.com/api/public/items?mode=selected&since=24h"
+   ```
+   - 返回的是 AI HOT 编辑精选条目，质量高、AI 相关性强，可直接进入候选池；
+   - 不需要 API Key，公开匿名访问；
+   - **必须带 User-Agent**，否则 403 被拦截；
+   - aihot 只作为"发现线索"数据源，主推荐仍需 Brave/Tavily 交叉验证。
+3. **Tavily / web_search 搜索验证**：用于查询权威媒体、官方公告、产品博客、深度报道，判断一个热榜线索是否真实、是否有足够素材。
+3. **web_extract / 原文抓取**：用于读取官方博客、GitHub README、Hugging Face、产品官网、技术文档等一手信息。
+4. **浏览器实时抓取**：用于直接打开 GitHub Trending、Hacker News、Product Hunt、官网页面等动态页面，绕过 API 缺失、聚合延迟或页面结构限制。
+5. **多模型推理**：用于对候选话题做交叉判断，包括账号匹配、实操价值、副业连接度、传播潜力、表达风险。
+6. **三平台推送**：飞书、Telegram、微信均可作为选题报告推送渠道；生成报告后可按用户要求推送到指定平台。
+
+默认工作原则：
+- NewsNow 只负责”发现线索”，不负责最终判断；NewsNow 失败时自动 fallback 到 aihot 精选 API；
+- aihot 精选同样只作为”发现线索”，主推荐必须经过 Brave/Tavily 交叉验证；
+- 社交平台热榜只作为”热度信号”，不能单独作为可信来源；
+- 主推荐必须经过搜索或原文抓取交叉验证；
+- 有官方 / GitHub / Hugging Face / 产品官网 / 权威媒体支撑的话题优先；
+- 最终推荐不是热度最高的 10 个，而是最适合账号写、最能落地、最有可靠来源的 3 个。
+
+## 准确选题硬规则（2026-05-10）
+
+当用户要求“每日话题排名 / 每日选题 / 选题推荐”时，默认不是输出泛泛 TOP10，而是执行“多信号叠加后输出最终 3 个推荐”：
+
+1. **广撒网**：优先抓取 18 个平台热榜：GitHub、Hacker News、IT之家、掘金、V2EX、少数派、Product Hunt、知乎、微博、微信、百度、头条、抖音、B站、小红书、Solidot、牛客、PCBeta。
+2. **交叉验证**：对候选话题必须补充搜索/抓取/浏览器验证；优先官方博客、GitHub README、Hugging Face、产品官网、权威媒体。
+3. **可信度评分**：使用脚本输出的 `credibility_score`、`credibility_level`、`red_flags`；低于 40 分直接拒绝，低于 60 分只能作为线索，不能作为主推荐。
+4. **三层过滤**：关键词过滤 → AI 模糊过滤 → 实操价值过滤。
+5. **账号匹配**：优先“AI领域职场成长与工具应用，以及利用 AI 搞副业”；尤其关注 AI 工具应用、AI 副业、职场成长、实操教程、AI 行业动态。
+6. **八维评分**：数据震撼力、故事性、争议性、实操价值、情绪共鸣、社交货币、标题吸引力、可读性。
+7. **最终输出**：默认只输出最终 3 个推荐；如需 TOP10，先给表格，并标出“观察/不建议主写”的理由。
+
+推荐输出结构：
+
+| 排名 | 最终推荐选题 | 分数 | 核心信号 | 可信来源 | 为什么适合账号 | 建议内容形态 |
+|---:|---|---:|---|---|---|---|
+
+然后补充：
+- 今日第 1 推荐的文章角度；
+- 备选池 3-5 个；
+- 拒绝/降级原因。
+
+
+
+### Tavily 搜索助手
+
+当前共享 skill 已提供 `scripts/tavily_search.py`，会从以下位置自动读取 `TAVILY_API_KEY`：
+
+1. 进程环境变量；
+2. `wechat-topic-radar/.env.local`；
+3. `~/.config/wechat-topic-radar/env`。
+
+示例：
+
+```bash
+python3 scripts/tavily_search.py "Claude Code Routines official" --max-results 5
+```
+
+注意：不要在输出中打印 API Key；只输出搜索结果和来源链接。
+
+
+
+### Brave Search 搜索助手
+
+当前共享 skill 已提供 `scripts/brave_search.py`，会从以下位置自动读取 `BRAVE_SEARCH_API_KEY`：
+
+1. 进程环境变量；
+2. `wechat-topic-radar/.env.local`；
+3. `~/.config/wechat-topic-radar/env`。
+
+示例：
+
+```bash
+python3 scripts/brave_search.py "OpenAI official blog" --count 5
+```
+
+注意：不要在输出中打印 API Key；只输出搜索结果和来源链接。
+
 ## 触发方式
 
 ### 方式一：每日选题
@@ -44,6 +140,9 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 | `prompt_filter.md` | AI提示词模糊过滤：包含需要排除的内容模式 |
 | `viral_headlines.md` | 爆款标题公式库：生成搜索用的爆款标题 |
 | `language_safety.md` | 语言安全规则：禁用词、表述规范、数据标注要求 |
+| `data_sources.md` | 数据源配置：微信/小红书替代源、API key、fallback 规则 |
+| `platform_templates.md` | 四平台选题适配模板：公众号、小红书、微信视频号、抖音 |
+| `account_profile.md` | 也船长AI账号配置与专属评分规则 |
 
 **重要**：使用技能前应先读取并加载这些配置文件。
 
@@ -118,11 +217,16 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 
 ### 每日选题流程
 
-1. **加载配置**：读取 persona.md、keywords_filter.md、prompt_filter.md、viral_headlines.md
+1. **加载配置**：读取 `account_profile.md`（账号专属评分框架，优先级最高）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
+   - 评分时以 `account_profile.md` 的 7 维框架为准，而非通用的 8 维爆款潜力
+   - 人设匹配度评估：对照 `account_profile.md` 的主赛道关键词和选题否决规则
 2. **抓取热搜**：
    - 调用 `scripts/fetch_hot_topics.py` 抓取多平台热搜
+   - 微信/小红书数据源已支持多 provider fallback；详见 `references/data_sources.md`
+   - 推荐命令：`python3 scripts/fetch_hot_topics.py --platform weixin,xiaohongshu --provider auto --json`
    - 支持平台：zhihu、weibo、weixin、baidu、toutiao、douyin、bilibili、xiaohongshu、ithome、juejin、github、hackernews、solidot、v2ex、nowcoder、pcbeta、sspai、producthunt
    - API格式：`https://newsnow.busiyi.world/api/s?id={platform}&latest=true`
+   - **若 NewsNow 返回 D1_ERROR / 过载 / 空结果**：立即切换 aihot fallback（见"环境能力组合拳"第2条），不要等待重试
 3. **过滤处理**：
    - 第一轮：关键词过滤（keywords_filter.md）
    - 第二轮：AI提示词模糊过滤（prompt_filter.md）
@@ -131,11 +235,11 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 5. **生成选题**：结合人设配置，按输出格式生成5-10个选题
 6. **选题评分**：按选题评分系统对每个选题进行评分
 7. **补充标题**：为每个选题生成5个具有爆款潜力的标题
-8. **保存文件**：将选题按固定模板保存到 `topics/` 文件夹
+8. **保存文件**：将选题按固定模板保存到 `04.选题决策/每日选题/` 文件夹
 
 ### 关键词选题流程（爆款公式搜索）
 
-1. **加载配置**：读取 persona.md、keywords_filter.md、prompt_filter.md、viral_headlines.md
+1. **加载配置**：读取 `account_profile.md`（账号专属评分框架）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
 2. **网络搜索**：
    - 使用 WebSearch 搜索以下平台，每个平台搜索3-5个爆款标题变体：
      - 公众号：`site:mp.weixin.qq.com "{关键词}"` + 爆款标题
@@ -155,7 +259,41 @@ AI领域微信公众号选题推荐工具，智能分析热点，生成爆款标
 5. **生成选题**：按输出格式生成选题
 6. **选题评分**：按选题评分系统对每个选题进行评分
 7. **补充标题**：为每个选题生成5个标题
-8. **保存文件**：将选题按固定模板保存到 `topics/` 文件夹
+8. **保存文件**：将选题按固定模板保存到 `04.选题决策/每日选题/` 文件夹
+
+
+### 四平台选题生成流程
+
+当用户需要公众号、小红书、微信视频号、抖音选题适配时：
+
+1. 先用 `scripts/fetch_hot_topics.py` 抓取热点 JSON。
+2. 再用 `scripts/generate_platform_topics.py` 转换成目标平台选题。
+3. 目标平台支持：`wechat_article`、`xhs`、`wechat_video`、`douyin`、`all`。
+
+示例：
+
+```bash
+# 先抓取热点
+python3 scripts/fetch_hot_topics.py --platform zhihu,weibo,douyin,ithome,juejin,github --json > /tmp/hot.json
+
+# 生成四平台选题
+python3 scripts/generate_platform_topics.py --input /tmp/hot.json --platform all --limit 3 --output 04.选题决策/每日选题/$(date +%Y%m%d)-四平台选题.md
+
+# 只生成抖音选题
+python3 scripts/generate_platform_topics.py --input /tmp/hot.json --platform douyin --limit 5
+
+# 只生成小红书 AI 编程相关选题
+python3 scripts/generate_platform_topics.py --input /tmp/hot.json --platform xhs --keyword AI编程 --limit 5
+```
+
+四平台定位：
+
+| 平台 | 重点 |
+|---|---|
+| `wechat_article` | 长文深度、信息增量、实操价值 |
+| `xhs` | 封面点击、收藏价值、图文卡片结构 |
+| `wechat_video` | 熟人转发、专业口播、观点密度 |
+| `douyin` | 前3秒钩子、完播潜力、情绪/冲突 |
 
 ## 热搜抓取脚本
 
@@ -276,7 +414,7 @@ python3 scripts/fetch_hot_topics.py --platform all
 ## 文件输出模板
 
 ### 保存位置
-选题文件保存到 `topics/` 文件夹下
+选题文件保存到 `04.选题决策/每日选题/` 文件夹下
 
 ### 文件命名规则
 ```
@@ -359,7 +497,7 @@ export REPLICATE_API_TOKEN="your_api_token_here"
 
 1. **生成提示词**：根据选题内容，从 `references/image_prompts.md` 读取模板，生成具体提示词
 2. **调用API**：使用 `scripts/generate_image.py` 生成图片
-3. **保存图片**：图片保存到 `topics/images/` 目录
+3. **保存图片**：图片保存到 `04.选题决策/每日选题/images/` 目录
 4. **输出链接**：返回图片路径或URL
 
 ### 封面图生成示例
@@ -369,7 +507,7 @@ export REPLICATE_API_TOKEN="your_api_token_here"
 ```bash
 python3 scripts/generate_image.py \
   --prompt "Professional magazine cover image featuring Tim Cook and Jon Ternus, Apple CEO transition, AI era, clean corporate aesthetic, 16:9 aspect ratio" \
-  --output topics/images/20260421-cover.png
+  --output 04.选题决策/每日选题/images/20260421-cover.png
 ```
 
 ### 支持的配图尺寸
@@ -452,7 +590,7 @@ python3 scripts/generate_image.py --test
 **步骤5：自动校验（新增）**
 使用 fact_checker.py 进行最终校验：
 ```bash
-python3 scripts/fact_checker.py topics/xxx.md
+python3 scripts/fact_checker.py 04.选题决策/每日选题/xxx.md
 ```
 
 **步骤6：输出**
@@ -476,20 +614,20 @@ python3 scripts/fact_checker.py topics/xxx.md
 
 ```bash
 # 检查单篇文章
-python3 scripts/fact_checker.py topics/20260421-库克卸任苹果CEO.md
+python3 scripts/fact_checker.py 04.选题决策/每日选题/20260421-库克卸任苹果CEO.md
 
 # 检查目录下所有文章
-python3 scripts/fact_checker.py --check-all topics/
+python3 scripts/fact_checker.py --check-all 04.选题决策/每日选题/
 
 # JSON格式输出（用于自动化）
-python3 scripts/fact_checker.py topics/xxx.md --format json
+python3 scripts/fact_checker.py 04.选题决策/每日选题/xxx.md --format json
 ```
 
 ### 校验输出示例
 
 ```
 ============================================================
-文件: topics/20260421-库克卸任苹果CEO.md
+文件: 04.选题决策/每日选题/20260421-库克卸任苹果CEO.md
 ============================================================
 
 📊 检查结果: PASS
