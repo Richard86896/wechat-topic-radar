@@ -75,32 +75,62 @@ def parse_report(filepath):
             "total_formula": None,
         }
 
-        # 提取七维分数 —— 匹配表格行 "| 相关性 | 20/20 |" 或 "| 相关性 | 18/20 | 评估文本 |"
+        # 提取七维分数 —— 支持两种格式：
+        # 1. 表格格式: | 相关性 | 18/20 |
+        # 2. 列表格式: - 相关性：18/20 或 - **相关性**：18/20
         for dim_name in DIMENSION_LIMITS:
-            # 表格格式: | 维度名 | X/Y | ...
-            pattern = rf"\|\s*{re.escape(dim_name)}\s*\|\s*(\d+)\s*/\s*\d+\s*\|"
-            match = re.search(pattern, block)
+            score = None
+            # 尝试表格格式
+            pattern_table = rf"\|\s*{re.escape(dim_name)}\s*\|\s*(\d+)\s*/\s*\d+\s*\|"
+            match = re.search(pattern_table, block)
             if match:
                 score = int(match.group(1))
+            else:
+                # 尝试列表格式（支持加粗）
+                pattern_list = rf"[-*]\s*\*{{0,2}}{re.escape(dim_name)}\*{{0,2}}[：:]\s*(\d+)\s*/\s*\d+"
+                match = re.search(pattern_list, block)
+                if match:
+                    score = int(match.group(1))
+            if score is not None:
                 # 统一用 "证据素材" 存储
                 key = "证据素材" if dim_name == "证据与素材" else dim_name
                 topic_data["dimensions"][key] = score
 
-        # 提取七维小计算式（在代码块中）
+        # 提取七维小计算式 —— 支持多种格式：
+        # 1. 代码块: 七维小计 = 18+18+... = 86
+        # 2. 列表: 七维小计：86（= 18+18+...）
+        # 3. 加粗+引用: > **七维小计**：86（= 18+18+...）
         subtotal_formula_match = re.search(
-            r"七维小计\s*=\s*([\d\s+]+)\s*=\s*(\d+)", block
+            r"七维小计\*{0,2}\s*[=：]\s*(\d+)\s*[（(]\s*=\s*([\d\s+]+)\s*[）)]", block
         )
         if subtotal_formula_match:
-            topic_data["subtotal_formula"] = subtotal_formula_match.group(1).strip()
-            topic_data["subtotal"] = int(subtotal_formula_match.group(2))
+            topic_data["subtotal"] = int(subtotal_formula_match.group(1))
+            topic_data["subtotal_formula"] = subtotal_formula_match.group(2).strip()
+        else:
+            subtotal_formula_match = re.search(
+                r"七维小计\s*=\s*([\d\s+]+)\s*=\s*(\d+)", block
+            )
+            if subtotal_formula_match:
+                topic_data["subtotal_formula"] = subtotal_formula_match.group(1).strip()
+                topic_data["subtotal"] = int(subtotal_formula_match.group(2))
 
-        # 提取总分算式（在代码块中）
+        # 提取总分算式 —— 支持多种格式：
+        # 1. 代码块: 总分 = 七维小计(86) + 加分项(+20) = 106
+        # 2. 列表: 总分/120：106（= 86 + 20）
+        # 3. 加粗+引用: > **总分/120**：106（= 86 + 20）
         total_formula_match = re.search(
             r"总分\s*=\s*七维小计\((\d+)\)\s*\+\s*加分项\(\+?(\d+)\)\s*=\s*(\d+)", block
         )
         if total_formula_match:
             topic_data["total"] = int(total_formula_match.group(3))
             topic_data["total_formula"] = f"七维小计({total_formula_match.group(1)}) + 加分项(+{total_formula_match.group(2)}) = {total_formula_match.group(3)}"
+        else:
+            total_list_match = re.search(
+                r"总分/?120\*{0,2}[：:]\s*(\d+)\s*[（(]\s*=\s*(\d+)\s*\+\s*(\d+)\s*[）)]", block
+            )
+            if total_list_match:
+                topic_data["total"] = int(total_list_match.group(1))
+                topic_data["total_formula"] = f"七维小计({total_list_match.group(2)}) + 加分项(+{total_list_match.group(3)}) = {total_list_match.group(1)}"
 
         # 兜底：从 "综合评分：X/120" 提取总分
         if topic_data["total"] is None:
@@ -108,8 +138,13 @@ def parse_report(filepath):
             if alt_total:
                 topic_data["total"] = int(alt_total.group(1))
 
-        # 提取加分项 —— 匹配 "**加分项**（命中 3 项，+12）：" 或 "加分项：+12"
+        # 提取加分项 —— 支持多种格式：
+        # 1. "**加分项**（命中 3 项，+12）："
+        # 2. "加分项：+20（命中5项：...）"
+        # 3. "加分项：+12"
         bonus_match = re.search(r"加分项\**[（(]命中\s*\d+\s*项[，,]\s*\+(\d+)[）)]", block)
+        if not bonus_match:
+            bonus_match = re.search(r"加分项[：:]\s*\+(\d+)[（(]命中", block)
         if bonus_match:
             topic_data["bonus"] = int(bonus_match.group(1))
         else:
@@ -121,8 +156,13 @@ def parse_report(filepath):
                 if alt_bonus:
                     topic_data["bonus"] = int(alt_bonus.group(1))
 
-        # 提取等级
+        # 提取等级 —— 支持多种格式：
+        # 1. 等级：S 级
+        # 2. （S级）
+        # 3. 表格: | S级 |
         grade_match = re.search(r"等级[：:]\s*([SABCD])\s*级", block)
+        if not grade_match:
+            grade_match = re.search(r"[（(]([SABCD])级[）)]", block)
         if grade_match:
             topic_data["grade"] = grade_match.group(1)
 
