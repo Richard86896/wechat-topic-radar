@@ -156,7 +156,7 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 | `language_safety.md` | 语言安全规则：禁用词、表述规范、数据标注要求 |
 | `data_sources.md` | 数据源配置：微信/小红书替代源、API key、fallback 规则 |
 | `platform_templates.md` | 四平台选题适配模板：公众号、小红书、微信视频号、抖音 |
-| `account_profile.md` | 也船长AI账号配置与专属评分规则 |
+| `account_profile.md` | 也船长AI账号配置：定位、读者画像、否决规则（评分框架已移至本文件） |
 
 **重要**：使用技能前应先读取并加载这些配置文件。
 
@@ -199,8 +199,8 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 
 | 步骤 | 目的 | 工具 | 输出 |
 |------|------|------|------|
-| ① 否决过滤 | 淘汰不该写的 | account_profile 否决规则 | 通过 / 淘汰 |
-| ② 七维评分 | 排名选题优先级 | account_profile 七维框架 | 综合评分 X/120 |
+| ① 否决过滤 | 淘汰不该写的 | account_profile 否决规则 + SKILL.md 减分条款 | 通过 / 淘汰 |
+| ② 七维评分 | 排名选题优先级 | SKILL.md 七维框架（本文件第二节） | 综合评分 X/120 |
 | ③ 八维爆款诊断 | 找短板，指导写作 | 爆款潜力 8 维度 | 短板提示 + 标题补强建议 |
 
 ---
@@ -300,8 +300,8 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 
 ### 每日选题流程
 
-1. **加载配置**：读取 `account_profile.md`（账号专属评分框架，优先级最高）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
-   - 评分时以 `account_profile.md` 的 7 维框架为准，而非通用的 8 维爆款潜力
+1. **加载配置**：读取 `account_profile.md`（账号定位、读者画像、否决规则）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
+   - 评分框架以本文件（SKILL.md）第二节为准，account_profile.md 不再维护评分逻辑
    - 人设匹配度评估：对照 `account_profile.md` 的主赛道关键词和选题否决规则
 2. **抓取热搜**：
    - 调用 `scripts/fetch_hot_topics.py` 抓取多平台热搜
@@ -322,7 +322,7 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 
 ### 关键词选题流程（爆款公式搜索）
 
-1. **加载配置**：读取 `account_profile.md`（账号专属评分框架）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
+1. **加载配置**：读取 `account_profile.md`（账号定位与否决规则）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
 2. **网络搜索**：
    - 使用 WebSearch 搜索以下平台，每个平台搜索3-5个爆款标题变体：
      - 公众号：`site:mp.weixin.qq.com "{关键词}"` + 爆款标题
