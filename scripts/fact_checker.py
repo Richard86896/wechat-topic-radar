@@ -5,7 +5,7 @@
 
 用法:
   python3 fact_checker.py articles/20260421-库克卸任苹果CEO.md
-  python3 fact_checker.py --check-all topics/
+  python3 fact_checker.py --check-all 04.选题决策/每日选题/
 """
 
 import argparse
@@ -272,7 +272,7 @@ def main():
     else:
         print("请指定要检查的文件或目录")
         print("用法: python3 fact_checker.py article.md")
-        print("     python3 fact_checker.py --check-all topics/")
+        print("     python3 fact_checker.py --check-all 04.选题决策/每日选题/")
         return
 
     results = []

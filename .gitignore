@@ -35,3 +35,7 @@ dist/
 *.tmp
 *.log
 *.bak
+
+# local secrets
+.env.local
+.env.*.local
