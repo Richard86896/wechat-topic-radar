@@ -52,11 +52,28 @@ cat memory/hot-cache.md
    - 不需要 API Key，公开匿名访问；
    - **必须带 User-Agent**，否则 403 被拦截；
    - aihot 只作为"发现线索"数据源，主推荐仍需 Brave/Tavily 交叉验证。
-3. **Tavily / web_search 搜索验证**：用于查询权威媒体、官方公告、产品博客、深度报道，判断一个热榜线索是否真实、是否有足够素材。
-3. **web_extract / 原文抓取**：用于读取官方博客、GitHub README、Hugging Face、产品官网、技术文档等一手信息。
-4. **浏览器实时抓取**：用于直接打开 GitHub Trending、Hacker News、Product Hunt、官网页面等动态页面，绕过 API 缺失、聚合延迟或页面结构限制。
-5. **多模型推理**：用于对候选话题做交叉判断，包括账号匹配、实操价值、副业连接度、传播潜力、表达风险。
-6. **三平台推送**：飞书、Telegram、微信均可作为选题报告推送渠道；生成报告后可按用户要求推送到指定平台。
+3. **GitHub Trending 直接抓取**：每日直接抓取 GitHub Trending 页面，获取开发者圈最热项目，不依赖聚合源延迟。命令：
+   ```bash
+   python3 scripts/fetch_github_trending.py --ai-only --limit 15
+   python3 scripts/fetch_github_trending.py --json --limit 25
+   ```
+   - 自动过滤 AI 相关仓库（`--ai-only`），关键词覆盖 llm/agent/rag/embedding/推理引擎等；
+   - 输出包含：仓库名、描述、语言、今日 star 数、总 star 数；
+   - **必须在每个选题 session 执行一次**，补充 NewsNow 对 GitHub 覆盖不足的盲区。
+4. **AI 公司官方公告监控**：通过 Brave Search 监控 OpenAI / Anthropic / Google DeepMind / Meta AI / Mistral / GitHub / Hugging Face / DeepSeek 的最新发布。命令：
+   ```bash
+   python3 scripts/fetch_x_announcements.py
+   python3 scripts/fetch_x_announcements.py --accounts openai anthropic
+   python3 scripts/fetch_x_announcements.py --all --json
+   ```
+   - 默认检查 high+medium 优先级共 8 个账号；
+   - 同时搜索各公司官方 blog，补充 X/Twitter 搜索不到的内容；
+   - **需要 BRAVE_SEARCH_API_KEY**（与 brave_search.py 共用）。
+5. **Tavily / web_search 搜索验证**：用于查询权威媒体、官方公告、产品博客、深度报道，判断一个热榜线索是否真实、是否有足够素材。
+6. **web_extract / 原文抓取**：用于读取官方博客、GitHub README、Hugging Face、产品官网、技术文档等一手信息。
+7. **浏览器实时抓取**：用于直接打开 Hacker News、Product Hunt、官网页面等动态页面，绕过 API 缺失、聚合延迟或页面结构限制。
+8. **多模型推理**：用于对候选话题做交叉判断，包括账号匹配、实操价值、副业连接度、传播潜力、表达风险。
+9. **三平台推送**：飞书、Telegram、微信均可作为选题报告推送渠道；生成报告后可按用户要求推送到指定平台。
 
 默认工作原则：
 - NewsNow 只负责”发现线索”，不负责最终判断；NewsNow 失败时自动 fallback 到 aihot 精选 API；
@@ -303,13 +320,15 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 1. **加载配置**：读取 `account_profile.md`（账号定位、读者画像、否决规则）、`persona.md`（定位摘要）、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
    - 评分框架以本文件（SKILL.md）第二节为准，account_profile.md 不再维护评分逻辑
    - 人设匹配度评估：对照 `account_profile.md` 的主赛道关键词和选题否决规则
-2. **抓取热搜**：
-   - 调用 `scripts/fetch_hot_topics.py` 抓取多平台热搜
-   - 微信/小红书数据源已支持多 provider fallback；详见 `references/data_sources.md`
-   - 推荐命令：`python3 scripts/fetch_hot_topics.py --platform weixin,xiaohongshu --provider auto --json`
-   - 支持平台：zhihu、weibo、weixin、baidu、toutiao、douyin、bilibili、xiaohongshu、ithome、juejin、github、hackernews、solidot、v2ex、nowcoder、pcbeta、sspai、producthunt
-   - API格式：`https://newsnow.busiyi.world/api/s?id={platform}&latest=true`
-   - **若 NewsNow 返回 D1_ERROR / 过载 / 空结果**：立即切换 aihot fallback（见"环境能力组合拳"第2条），不要等待重试
+2. **抓取热搜**（四路并行）：
+   - **a. 热榜聚合**：`python3 scripts/fetch_hot_topics.py --platform ithome,juejin,github,hackernews,zhihu,weibo --json`
+     - 支持平台：zhihu、weibo、weixin、baidu、toutiao、douyin、bilibili、xiaohongshu、ithome、juejin、github、hackernews、solidot、v2ex、nowcoder、pcbeta、sspai、producthunt
+     - **若 NewsNow 返回 D1_ERROR / 过载 / 空结果**：立即切换 aihot fallback（见"环境能力组合拳"第2条）
+   - **b. GitHub Trending 直接抓取**（新增）：`python3 scripts/fetch_github_trending.py --ai-only --limit 15`
+     - 补充 NewsNow 对 GitHub 覆盖不足的盲区，直接抓取 trending 页面
+   - **c. AI 公司公告监控**（新增）：`python3 scripts/fetch_x_announcements.py`
+     - 监控 OpenAI / Anthropic / Google DeepMind / Meta AI / Mistral / GitHub / Hugging Face / DeepSeek 最新发布
+   - **d. aihot AI 精选补充**：curl aihot API 获取编辑精选，补充 AI 垂类热度信号
 3. **过滤处理**：
    - 第一轮：关键词过滤（keywords_filter.md）
    - 第二轮：AI提示词模糊过滤（prompt_filter.md）
