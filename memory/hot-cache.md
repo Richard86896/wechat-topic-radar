@@ -45,3 +45,5 @@
 | 2026-05-13 | 三步法评分本 session 再次被遗忘，用户问"你选题评分的标准不记得了吗"。强化提醒：选题评分必须用三步法（否决过滤→七维评分满分120→八维爆款诊断），不得使用五星制或任何简化评分。每次执行选题前必须先读 SKILL.md 确认评分体系 | 对话触发·用户纠正 |
 | 2026-05-13 | 选题流程排查修复：① SKILL.md aihot since=24h 改为 ISO 日期格式；② GitHub Trending 星数输出模板加注时间戳说明；③ 新增 verify_scores.py 自动验算脚本，写入 SKILL.md 流程；④ 确认 TAVILY+BRAVE Key 在 .env.local 中已配置，REPLICATE 未配置 | 流程排查 |
 | 2026-05-13 | verify_scores.py 脚本实际测试通过：7 个选题全部验算正确，0 错误 0 警告 | 流程排查 |
+| 2026-05-13 | SKILL.md 瘦身 v3.0.0：从 31KB 压缩至 8KB（-75%），详细参考内容拆到 references/ 目录下 5 个文件。目的是减小 Claude Code skill 扫描负载，提高 Skill() 调用可靠性。备份在 `00.系统配置/备份/SKILL.md.bak.2026-05-13` | 流程排查 |
+| 2026-05-13 | Skill 注册状态排查：wechat-topic-radar 目录和 frontmatter 格式正确，已在 system-reminder 的可用 skill 列表中。本次调用失败原因是 SKILL.md 过大（31KB）导致扫描加载不完整。瘦身至 8KB 后应解决 | 流程排查 |
