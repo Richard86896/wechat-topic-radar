@@ -46,11 +46,16 @@ cat memory/hot-cache.md
 2. **AI HOT 精选（aihot fallback）**：NewsNow 过载或返回空结果时，立即切换到 aihot.virxact.com 精选 API 作为 AI 资讯备用数据源。命令：
    ```bash
    UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-   curl -sH "User-Agent: $UA" "https://aihot.virxact.com/api/public/items?mode=selected&since=24h"
+   # since 必须用 ISO 日期格式，不可用 "24h" 等相对时间
+   SINCE=$(date -u -v-1d +%Y-%m-%dT%H:%M:%S%z 2>/dev/null || date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%S%z)
+   curl -sH "User-Agent: $UA" "https://aihot.virxact.com/api/public/items?mode=selected&since=$SINCE"
+   # 若 since 报错，可省略 since 参数直接获取最新条目：
+   # curl -sH "User-Agent: $UA" "https://aihot.virxact.com/api/public/items?mode=selected"
    ```
    - 返回的是 AI HOT 编辑精选条目，质量高、AI 相关性强，可直接进入候选池；
    - 不需要 API Key，公开匿名访问；
    - **必须带 User-Agent**，否则 403 被拦截；
+   - **`since` 参数必须用 ISO 日期格式**（如 `2026-05-12T00:00:00+08:00`），`since=24h` 会报错；
    - aihot 只作为"发现线索"数据源，主推荐仍需 Brave/Tavily 交叉验证。
 3. **GitHub Trending 直接抓取**：每日直接抓取 GitHub Trending 页面，获取开发者圈最热项目，不依赖聚合源延迟。命令：
    ```bash
@@ -206,7 +211,7 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 - **爆款诊断**（八维雷达，找短板用）:
   - 数据震撼力 / 故事性 / 争议性 / 实操价值 / 情绪共鸣 / 社交货币 / 标题吸引力 / 可读性
   - 短板提示：{哪个维度最弱，标题/角度应如何补}
-- **热点日期**: {yyyy年mm月dd日}
+- **热点日期**: {yyyy年mm月dd日}（GitHub Trending 数据截至当日抓取时间，星数可能随时间变化）
 - **原文链接**: {相关热点新闻链接}
 ```
 
@@ -270,6 +275,12 @@ python3 scripts/brave_search.py "OpenAI official blog" --count 5
 > 总分 = 七维小计({结果}) + 加分项({+X}) = {最终分数}
 > ```
 > 若算式不成立，评分视为无效。评分由语言模型心算，必须用算式自检，防止出现今天报告中出现的加法错误。
+>
+> **自动验算脚本**：选题报告保存后，运行以下命令自动校验所有评分加法是否正确：
+> ```bash
+> python3 scripts/verify_scores.py "04.选题决策/每日选题/YYYYMMDD-每日选题.md"
+> ```
+> 脚本会检查：七维求和、总分计算、等级匹配、维度范围。退出码 0=通过，1=有错误。
 
 **评分等级**：
 

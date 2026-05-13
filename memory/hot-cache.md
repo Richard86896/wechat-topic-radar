@@ -37,8 +37,11 @@
 
 ## 待处理 / 开放循环
 
-- [ ] 验证 aihot fallback 在下次选题时是否被正确调用
+- [x] 验证 aihot fallback 在下次选题时是否被正确调用 → 2026-05-13 已修正 SKILL.md 中的 since 参数
+- [ ] 确认 REPLICATE_API_TOKEN 是否需要配置（配图生成依赖，当前未配置）
 
 ### 2026-05-12 补充
 - **AI HOT fallback 参数修正**：实测 `since=24h` 返回 `invalid since (must be ISO date, not in future)`；可用方式是省略 `since` 或传 ISO 日期，例如 `since=2026-05-11T00:00:00%2B08:00`。后续脚本/说明应避免把 `since=24h` 当作稳定参数。
 | 2026-05-13 | 三步法评分本 session 再次被遗忘，用户问"你选题评分的标准不记得了吗"。强化提醒：选题评分必须用三步法（否决过滤→七维评分满分120→八维爆款诊断），不得使用五星制或任何简化评分。每次执行选题前必须先读 SKILL.md 确认评分体系 | 对话触发·用户纠正 |
+| 2026-05-13 | 选题流程排查修复：① SKILL.md aihot since=24h 改为 ISO 日期格式；② GitHub Trending 星数输出模板加注时间戳说明；③ 新增 verify_scores.py 自动验算脚本，写入 SKILL.md 流程；④ 确认 TAVILY+BRAVE Key 在 .env.local 中已配置，REPLICATE 未配置 | 流程排查 |
+| 2026-05-13 | verify_scores.py 脚本实际测试通过：7 个选题全部验算正确，0 错误 0 警告 | 流程排查 |
