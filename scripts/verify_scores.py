@@ -47,8 +47,31 @@ def get_grade(score):
     return "D"
 
 
+def resolve_report_path(filepath):
+    """Resolve report path robustly from either vault root or skill root."""
+    if os.path.isabs(filepath):
+        return filepath
+
+    candidates = []
+    candidates.append(os.path.abspath(filepath))
+
+    vault_root = os.environ.get("OBSIDIAN_VAULT_ROOT", "/Users/Richard/ObsidianVaults/我的知识库")
+    candidates.append(os.path.join(vault_root, filepath))
+
+    # If called from skill root with a vault-relative path, this catches it.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    skill_root = os.path.dirname(script_dir)
+    candidates.append(os.path.join(skill_root, filepath))
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
 def parse_report(filepath):
     """解析选题报告，返回每个选题的评分数据。"""
+    filepath = resolve_report_path(filepath)
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 

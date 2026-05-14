@@ -1,6 +1,6 @@
 ---
 name: wechat-topic-radar
-description: Use this skill when the user asks for AI公众号选题推荐, says "每日选题", or uses "选题：{关键词}" to generate 5-10 WeChat article ideas with titles, audience, content angles, score, date, and source links.
+description: Use this skill when the user asks for 今日公众号选题排名、AI公众号选题推荐、每日选题, using one canonical seven-dimension 120-point scoring workflow and saving one authoritative daily report.
 version: "3.0.0"
 argument-hint: "每日选题 | 选题：关键词"
 allowed-tools: [Read, Bash, WebSearch, WebFetch]
@@ -28,20 +28,25 @@ cat memory/hot-cache.md
 
 - 所有"每日选题 / 选题雷达"类 Markdown 输出，默认保存到：`04.选题决策/每日选题/`
 - 不要在 vault 根目录创建 `topics/` 等临时目录
+- 每天只允许一个公众号选题排名权威文件：`04.选题决策/每日选题/YYYYMMDD-公众号选题排名.md`
+- 同一天重复运行时，必须更新/覆盖这个权威文件，并在文件内追加“更新记录”；不要生成“详细评分表/汇总评分表/爆款潜力版”等平行文件。
+- 如确需实验稿，文件名必须包含 `草稿` 或 `废弃`，并在正文顶部标记“非权威版本”。
 
 ---
 
 ## 环境能力组合拳
 
-选题准确度依赖当前环境里的多能力组合：
+选题准确度依赖多数据源，但报告必须如实记录**本次实际成功使用的数据源**。
 
-1. **NewsNow 热榜聚合**：`python3 scripts/fetch_hot_topics.py --platform ithome,juejin,github,hackernews,zhihu,weibo --json`
-2. **AI HOT 精选（fallback）**：NewsNow 过载时切换到 aihot API，详见 `references/script_guide.md`
-3. **GitHub Trending**：`python3 scripts/fetch_github_trending.py --ai-only --limit 15`
-4. **AI 公司公告**：`python3 scripts/fetch_x_announcements.py`（需 BRAVE_SEARCH_API_KEY）
-5. **搜索验证**：`python3 scripts/brave_search.py "查询" --count 5`
+当前默认三路主源：
 
-默认原则：所有热榜只负责"发现线索"，主推荐必须经过搜索/原文抓取交叉验证。
+1. **AI HOT 精选**：稳定主源，用于 AI 新模型、AI 产品、行业动态、论文、技巧观点线索。
+2. **GitHub Trending**：`python3 scripts/fetch_github_trending.py --ai-only --limit 15`，用于开源项目和开发者工具线索。
+3. **AI 公司公告 / 搜索验证**：`python3 scripts/fetch_x_announcements.py` 或 `python3 scripts/brave_search.py "查询" --count 5`，用于补官方公告、原文和权威媒体。
+
+NewsNow 热榜聚合曾长期出现 D1_ERROR/过载问题，现降级为可选补充源，不再写成强制“四路并行”。如果某一路失败，必须在报告 frontmatter 或“数据源执行记录”中写明失败原因，不得假装已使用。
+
+默认原则：所有热榜只负责“发现线索”，主推荐必须经过搜索/原文抓取交叉验证；无法交叉验证的只能作为观察线索或降级推荐。
 
 ---
 
@@ -49,13 +54,13 @@ cat memory/hot-cache.md
 
 当用户要求"每日话题排名 / 每日选题 / 选题推荐"时：
 
-1. **广撒网**：四路并行抓取（热榜聚合 + GitHub Trending + AI公司公告 + aihot精选）
+1. **广撒网**：默认三路抓取（AI HOT精选 + GitHub Trending + AI公司公告/搜索验证），NewsNow仅作可选补充；报告必须记录实际成功数据源
 2. **交叉验证**：对候选话题补充搜索/抓取验证；优先官方博客、GitHub README、权威媒体
 3. **可信度评分**：脚本输出的 credibility_score < 40 直接拒绝，< 60 只能作为线索
 4. **三层过滤**：关键词过滤 → AI 模糊过滤 → 实操价值过滤（详见 `references/filter_rules.md`）
 5. **账号匹配**：优先"AI领域职场成长与工具应用，以及利用 AI 搞副业"
-6. **三步评分**：① 否决过滤 → ② 七维评分（满分 120）→ ③ 八维爆款诊断（不打分，找短板）
-7. **最终输出**：不少于 5 个推荐
+6. **唯一评分体系**：① 否决过滤 → ② 七维评分（满分 120）→ ③ 八维爆款诊断（不打分，找短板）。禁止混用“选题验证评分”五维100分制、旧版人设匹配×爆款潜力公式或其他评分表
+7. **最终输出**：不少于 5 个推荐；每日只维护一个权威文件，重复执行必须覆盖/更新同一文件，而不是新建多个版本
 
 ---
 
@@ -108,7 +113,7 @@ cat memory/hot-cache.md
 >
 > **自动验算脚本**：报告保存后运行：
 > ```bash
-> python3 scripts/verify_scores.py "04.选题决策/每日选题/YYYYMMDD-每日选题.md"
+> python3 /Users/Richard/AgentSkills/skills/wechat-topic-radar/scripts/verify_scores.py "/Users/Richard/ObsidianVaults/我的知识库/04.选题决策/每日选题/YYYYMMDD-公众号选题排名.md"
 > ```
 
 **评分等级**：
@@ -138,17 +143,36 @@ cat memory/hot-cache.md
 
 ---
 
+
+## 禁止混用的评分体系
+
+为保证每日选题可比、可复盘，`今日公众号选题排名` 只能使用本 Skill 的三步法：
+
+1. 否决过滤；
+2. 七维评分，满分120；
+3. 八维爆款诊断，不计分。
+
+禁止在公众号排名主流程中混用：
+
+- `选题验证评分` Skill 的五维100分制；
+- 旧版 `人设匹配度 × 40% + 爆款潜力 × 60% + 时效加分` 公式；
+- 任何临时自定义总分表。
+
+如需跨平台短内容爆款判断，可另行调用对应平台 workflow，但不得覆盖 `YYYYMMDD-公众号选题排名.md` 的权威评分。
+
+---
+
 ## 操作流程
 
 ### 每日选题流程
 
-1. **加载配置**：读取 `account_profile.md`、`persona.md`、`keywords_filter.md`、`prompt_filter.md`、`viral_headlines.md`
-2. **抓取热搜**（四路并行）：热榜聚合 + GitHub Trending + AI 公司公告 + aihot 精选
+1. **加载配置**：读取 `references/account_profile.md`、`references/persona.md`、`references/keywords_filter.md`、`references/prompt_filter.md`、`references/viral_headlines.md`
+2. **抓取数据**：AI HOT精选 + GitHub Trending + AI公司公告/搜索验证；NewsNow 仅作可选补充，失败要如实记录
 3. **过滤处理**：关键词过滤 → AI 模糊过滤 → 实操价值过滤
 4. **话题分析**：从过滤后的热点中提取有价值的话题方向
 5. **生成选题**：结合人设配置，生成 5-10 个选题
 6. **选题评分**：按三步法评分
-7. **保存文件**：保存到 `04.选题决策/每日选题/`，运行 `verify_scores.py` 验算
+7. **保存文件**：保存/覆盖 `04.选题决策/每日选题/YYYYMMDD-公众号选题排名.md`，运行验算脚本
 
 ### 关键词选题流程
 
@@ -174,14 +198,14 @@ python3 scripts/generate_platform_topics.py --input /tmp/hot.json --platform all
 
 | 文件 | 说明 |
 |------|------|
-| `account_profile.md` | 账号定位、读者画像、否决规则 |
-| `persona.md` | 公众号人设配置 |
-| `keywords_filter.md` | 热搜排除关键词 |
-| `prompt_filter.md` | AI提示词过滤模式 |
-| `viral_headlines.md` | 爆款标题公式库 |
-| `language_safety.md` | 禁用词、表述规范 |
-| `data_sources.md` | 数据源配置 |
-| `platform_templates.md` | 四平台适配模板 |
+| `references/account_profile.md` | 账号定位、读者画像、否决规则 |
+| `references/persona.md` | 公众号人设配置 |
+| `references/keywords_filter.md` | 热搜排除关键词 |
+| `references/prompt_filter.md` | AI提示词过滤模式 |
+| `references/viral_headlines.md` | 爆款标题公式库 |
+| `references/language_safety.md` | 禁用词、表述规范 |
+| `references/data_sources.md` | 数据源配置 |
+| `references/platform_templates.md` | 四平台适配模板 |
 
 ---
 
@@ -199,7 +223,7 @@ python3 scripts/generate_platform_topics.py --input /tmp/hot.json --platform all
 
 ## 注意事项
 
-- 评分使用七维框架（100分制+加分项，满分120），不要用已废弃的 115 分制
+- 评分唯一使用七维框架（七维小计100分 + 加分项最多20分 = 满分120），不要使用五维100分制、旧版人设匹配×爆款潜力公式或已废弃的115分制
 - 爆款诊断（八维）只用于找短板，不参与评分计算
 - 优先推荐 B 级（75分）以上的选题
 - 链接优先选择权威媒体或行业媒体报道
